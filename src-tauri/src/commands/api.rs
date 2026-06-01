@@ -2764,20 +2764,21 @@ fn read_comfyui_lora_manager_metadata(
     let Some(json) = read_json_sidecar(&path)? else {
         return Ok(None);
     };
-    Ok(json
-        .get("base_model")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|v| !v.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            json.get("civitai")
-                .and_then(|v| v.get("baseModel"))
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|v| !v.is_empty())
-                .map(str::to_string)
-        }))
+    Ok(
+        json.get("base_model")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty() && !v.eq_ignore_ascii_case("unknown"))
+            .map(str::to_string)
+            .or_else(|| {
+                json.get("civitai")
+                    .and_then(|v| v.get("baseModel"))
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty() && !v.eq_ignore_ascii_case("unknown"))
+                    .map(str::to_string)
+            }),
+    )
 }
 
 fn read_stability_matrix_metadata(
@@ -2793,7 +2794,7 @@ fn read_stability_matrix_metadata(
         .get("BaseModel")
         .and_then(|v| v.as_str())
         .map(str::trim)
-        .filter(|v| !v.is_empty())
+        .filter(|v| !v.is_empty() && !v.eq_ignore_ascii_case("other"))
         .map(str::to_string))
 }
 
