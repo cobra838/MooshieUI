@@ -38,6 +38,7 @@
   let isPanning = false;
   let isSpacePanning = false;
   let currentLine: Konva.Line | null = null;
+  let activeStrokeTool: "brush" | "eraser" | null = null;
   let lastPointerPos: { x: number; y: number } | null = null;
   let brushCursor: Konva.Circle | null = null;
 
@@ -557,9 +558,11 @@
     }
 
     // Right click → ignore (context menu)
-    if (evt.button === 2) return;
+    const isTemporaryMaskErase = evt.button === 2 && isInpaintMaskMode();
+    if (evt.button === 2 && !isTemporaryMaskErase) return;
+    if (isTemporaryMaskErase) e.evt.preventDefault();
 
-    const tool = canvas.activeTool;
+    const tool = isTemporaryMaskErase ? "eraser" : canvas.activeTool;
     const pos = getCanvasPos(e);
     if (!pos) return;
 
@@ -578,6 +581,7 @@
       canvasHistory.snapshot(layer.id);
 
       isDrawing = true;
+      activeStrokeTool = tool;
 
       const inpaintMaskMode = isInpaintMaskMode();
 
@@ -678,7 +682,7 @@
 
     // Update brush cursor
     if (brushCursor && canvasPos) {
-      const tool = canvas.activeTool;
+      const tool = activeStrokeTool ?? canvas.activeTool;
       const showCursor = tool === "brush" || tool === "eraser";
       brushCursor.visible(showCursor);
       if (showCursor) {
@@ -717,7 +721,7 @@
 
       const points = currentLine.points();
       currentLine.points([...points, pos.x, pos.y]);
-      getActiveKonvaLayer()?.batchDraw();
+      currentLine.getLayer()?.batchDraw();
     }
 
     // Rectangle preview
@@ -775,6 +779,7 @@
     if (isDrawing) {
       isDrawing = false;
       currentLine = null;
+      activeStrokeTool = null;
       shouldAutoCommitMask = true;
     }
     
@@ -857,6 +862,7 @@
     if (isDrawing) {
       isDrawing = false;
       currentLine = null;
+      activeStrokeTool = null;
     }
 
     if (isDrawingRect) {

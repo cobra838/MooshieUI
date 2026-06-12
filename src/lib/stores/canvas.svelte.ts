@@ -27,6 +27,11 @@ export interface BoundingBox {
   locked: boolean;
 }
 
+export interface CanvasStagingEntry {
+  url: string;
+  owned: boolean;
+}
+
 export interface CanvasViewport {
   zoom: number;
   panX: number;
@@ -86,7 +91,7 @@ class CanvasStore {
   persistedMaskPreviewUrl = $state<string | null>(null);
 
   // Staging
-  stagingImages = $state<string[]>([]);
+  stagingImages = $state<CanvasStagingEntry[]>([]);
   stagingIndex = $state(0);
   isStagingActive = $state(false);
 
@@ -186,14 +191,27 @@ class CanvasStore {
     };
   }
 
-  stageImage(url: string) {
+  stageImage(url: string, options?: { owned?: boolean }) {
     if (!url) return;
-    this.stagingImages = [...this.stagingImages, url];
+    this.stagingImages = [
+      ...this.stagingImages,
+      {
+        url,
+        owned: options?.owned ?? false,
+      },
+    ];
     this.stagingIndex = this.stagingImages.length - 1;
     this.isStagingActive = this.stagingImages.length > 0;
   }
 
+  stageBlob(blob: Blob) {
+    this.stageImage(URL.createObjectURL(blob), { owned: true });
+  }
+
   clearStaging() {
+    for (const entry of this.stagingImages) {
+      if (entry.owned) URL.revokeObjectURL(entry.url);
+    }
     this.stagingImages = [];
     this.stagingIndex = 0;
     this.isStagingActive = false;
@@ -211,6 +229,8 @@ class CanvasStore {
 
   dismissCurrentStaging() {
     if (!this.stagingImages.length) return;
+    const current = this.stagingImages[this.stagingIndex];
+    if (current?.owned) URL.revokeObjectURL(current.url);
     this.stagingImages = this.stagingImages.filter((_, index) => index !== this.stagingIndex);
 
     if (!this.stagingImages.length) {
@@ -227,7 +247,7 @@ class CanvasStore {
 
   get currentStagingImage(): string | null {
     if (!this.stagingImages.length) return null;
-    return this.stagingImages[this.stagingIndex] ?? null;
+    return this.stagingImages[this.stagingIndex]?.url ?? null;
   }
 
   get effectiveReferenceImage(): string | null {

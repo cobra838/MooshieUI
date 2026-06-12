@@ -65,7 +65,7 @@
     if (!progress.lastOutputImage) return;
     try {
       const normalized = await normalizeStagedImage(progress.lastOutputImage);
-      canvas.stageImage(normalized.url);
+      canvas.stageImage(normalized.url, { owned: true });
       generation.width = normalized.width;
       generation.height = normalized.height;
 
