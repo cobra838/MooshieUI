@@ -466,6 +466,8 @@ const de: Record<string, string> = {
   "generation.prompts.scheduling": "Prompt-Planung",
   "generation.prompts.scheduling_segments": "{count} Segment(e)",
   "generation.prompts.quality_applied": "Qualitäts-Prompt angewendet",
+  "generation.prompts.quality_disabled": "Qualitäts-Prompts deaktiviert",
+  "generation.prompts.quality_badge_hint": "Linksklick schaltet Qualitäts-Tags um. Rechtsklick öffnet die Anpassung.",
   "generation.prompts.anima_artist_tip": "Tipp: Künstler-Tags beginnen mit @ (z.B. @artist_name)",
   "generation.prompt.category_all": "All",
   "generation.prompt.category_general": "General",
