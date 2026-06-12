@@ -29,14 +29,22 @@
       progress.setLastOutputForMode("inpainting", null);
       canvas.clearMask();
       canvas.clearStaging();
-      canvas.setInpaintSessionBase({
-        previewUrl: normalized.previewUrl,
-        width: normalized.width,
-        height: normalized.height,
-        filename: normalized.filename,
-        uploadedInputName: response.name,
-        owned: true,
-      });
+      if (canvas.hasResettableInpaintSource) {
+        canvas.setPreparedInpaintOverride({
+          previewUrl: normalized.previewUrl,
+          width: normalized.width,
+          height: normalized.height,
+          uploadedInputName: response.name,
+          owned: true,
+        });
+      } else {
+        canvas.setInpaintOriginalSource({
+          previewUrl: normalized.previewUrl,
+          width: normalized.width,
+          height: normalized.height,
+          uploadedInputName: response.name,
+        });
+      }
       generation.width = normalized.width;
       generation.height = normalized.height;
       canvas.isCanvasMode = true;
@@ -54,9 +62,9 @@
 
 <div class="border-t border-neutral-800 bg-neutral-900/70 px-3 py-2">
   <div class="flex items-center gap-2 mb-2">
-    {#if canvas.currentPreparedInputImage}
+    {#if generation.mode === "inpainting" ? canvas.hasResettableInpaintSource : canvas.currentPreparedInputImage}
       <img
-        src={canvas.currentPreparedInputImage}
+        src={generation.mode === "inpainting" ? canvas.resettableInpaintPreviewImage : canvas.currentPreparedInputImage}
         alt={locale.t("canvas.staged_alt")}
         class="w-10 h-10 rounded border border-neutral-700 object-cover"
       />

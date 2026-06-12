@@ -374,13 +374,11 @@
 
   function syncInpaintBaseIfNeeded(normalized: NormalizedInputImage, uploadedInputName: string) {
     if (generation.mode !== "inpainting") return;
-    canvas.setInpaintSessionBase({
+    canvas.setInpaintOriginalSource({
       previewUrl: normalized.previewUrl,
       width: normalized.width,
       height: normalized.height,
-      filename: normalized.filename,
       uploadedInputName,
-      owned: true,
     });
   }
 
@@ -635,13 +633,11 @@
       progress.setLastOutputForMode("inpainting", null);
       canvas.isCanvasMode = true;
       applyNormalizedImagePreview(normalized);
-      canvas.setInpaintSessionBase({
+      canvas.setInpaintOriginalSource({
         previewUrl: normalized.previewUrl,
         width: normalized.width,
         height: normalized.height,
-        filename: normalized.filename,
         uploadedInputName: response.name,
-        owned: true,
       });
 
       if (canvas.layers.length === 0) {

@@ -141,13 +141,11 @@
         canvas.setInpaintDrawMode("mask");
         canvas.isCanvasMode = true;
         canvas.clearStaging();
-        canvas.setInpaintSessionBase({
+        canvas.setInpaintOriginalSource({
           previewUrl: normalized.previewUrl,
           width: normalized.width,
           height: normalized.height,
-          filename: normalized.filename,
           uploadedInputName: response.name,
-          owned: true,
         });
         if (canvas.layers.length === 0 || canvas.canvasWidth !== normalized.width || canvas.canvasHeight !== normalized.height) {
           canvas.initCanvas(normalized.width, normalized.height);

@@ -32,15 +32,6 @@ export interface CanvasStagingEntry {
   owned: boolean;
 }
 
-export interface InpaintPreparedSource {
-  previewUrl: string;
-  width: number;
-  height: number;
-  filename: string;
-  uploadedInputName: string | null;
-  owned: boolean;
-}
-
 export interface CanvasViewport {
   zoom: number;
   panX: number;
@@ -97,10 +88,12 @@ class CanvasStore {
   showCheckerboard = $state(true);
   cursorPos = $state<{ x: number; y: number } | null>(null);
   referenceImageUrl = $state<string | null>(null);
-  inpaintBaseSource = $state<InpaintPreparedSource | null>(null);
-  inpaintCurrentSource = $state<InpaintPreparedSource | null>(null);
-  inpaintHistory = $state<InpaintPreparedSource[]>([]);
-  inpaintSessionVersion = $state(0);
+  originalInpaintInputImageName = $state<string | null>(null);
+  originalInpaintWidth = $state<number | null>(null);
+  originalInpaintHeight = $state<number | null>(null);
+  preparedInpaintPreviewUrl = $state<string | null>(null);
+  preparedInpaintOwned = $state(false);
+  inpaintSourceVersion = $state(0);
   persistedMaskPreviewUrl = $state<string | null>(null);
 
   // Staging
@@ -213,47 +206,35 @@ class CanvasStore {
     }
   }
 
-  private revokeOwnedInpaintSources(sources: Array<InpaintPreparedSource | null | undefined>) {
-    this.revokeOwnedUrls(
-      sources
-        .filter((source): source is InpaintPreparedSource => Boolean(source?.owned && source.previewUrl))
-        .map((source) => source.previewUrl),
-    );
-  }
-
-  setInpaintSessionBase(source: InpaintPreparedSource | null) {
-    this.revokeOwnedInpaintSources([
-      this.inpaintBaseSource,
-      this.inpaintCurrentSource,
-      ...this.inpaintHistory,
-    ]);
-
-    this.inpaintSessionVersion += 1;
-    this.inpaintBaseSource = source;
-    this.inpaintCurrentSource = source;
-    this.inpaintHistory = [];
-
-    if (source) {
-      this.referenceImageUrl = source.previewUrl;
-      generation.inputImage = source.uploadedInputName;
-      generation.width = source.width;
-      generation.height = source.height;
-      this.clearMask();
-      this.initCanvas(source.width, source.height);
-    } else {
-      this.referenceImageUrl = null;
+  private clearPreparedInpaintOverride() {
+    if (this.preparedInpaintOwned && this.preparedInpaintPreviewUrl) {
+      URL.revokeObjectURL(this.preparedInpaintPreviewUrl);
     }
+    this.preparedInpaintPreviewUrl = null;
+    this.preparedInpaintOwned = false;
   }
 
-  adoptPreparedInpaintSource(source: InpaintPreparedSource) {
-    if (!this.inpaintBaseSource) {
-      this.setInpaintSessionBase(source);
+  setInpaintOriginalSource(source: {
+    previewUrl: string;
+    width: number;
+    height: number;
+    uploadedInputName: string | null;
+  } | null) {
+    this.clearPreparedInpaintOverride();
+    this.inpaintSourceVersion += 1;
+
+    if (!source) {
+      this.originalInpaintInputImageName = null;
+      this.originalInpaintWidth = null;
+      this.originalInpaintHeight = null;
+      this.referenceImageUrl = null;
       return;
     }
 
-    this.inpaintHistory = [...this.inpaintHistory, source];
-    this.inpaintCurrentSource = source;
     this.referenceImageUrl = source.previewUrl;
+    this.originalInpaintInputImageName = source.uploadedInputName;
+    this.originalInpaintWidth = source.width;
+    this.originalInpaintHeight = source.height;
     generation.inputImage = source.uploadedInputName;
     generation.width = source.width;
     generation.height = source.height;
@@ -261,66 +242,74 @@ class CanvasStore {
     this.initCanvas(source.width, source.height);
   }
 
-  resetInpaintSessionToBase(clearHistory: boolean = true) {
-    if (!this.inpaintBaseSource) return;
-
-    if (clearHistory) {
-      this.revokeOwnedInpaintSources([
-        ...this.inpaintHistory,
-        this.inpaintCurrentSource !== this.inpaintBaseSource ? this.inpaintCurrentSource : null,
-      ]);
-      this.inpaintHistory = [];
-    }
-
-    this.inpaintCurrentSource = this.inpaintBaseSource;
-    this.referenceImageUrl = this.inpaintBaseSource.previewUrl;
-    generation.inputImage = this.inpaintBaseSource.uploadedInputName;
-    generation.width = this.inpaintBaseSource.width;
-    generation.height = this.inpaintBaseSource.height;
+  setPreparedInpaintOverride(source: {
+    previewUrl: string;
+    width: number;
+    height: number;
+    uploadedInputName: string | null;
+    owned: boolean;
+  }) {
+    this.clearPreparedInpaintOverride();
+    this.preparedInpaintPreviewUrl = source.previewUrl;
+    this.preparedInpaintOwned = source.owned;
+    generation.inputImage = source.uploadedInputName;
+    generation.width = source.width;
+    generation.height = source.height;
     this.clearMask();
-    this.initCanvas(this.inpaintBaseSource.width, this.inpaintBaseSource.height);
+    this.initCanvas(source.width, source.height);
+  }
+
+  restoreOriginalInpaintSource() {
+    if (!this.originalInpaintInputImageName || this.originalInpaintWidth == null || this.originalInpaintHeight == null) {
+      return;
+    }
+    this.clearPreparedInpaintOverride();
+    generation.inputImage = this.originalInpaintInputImageName;
+    generation.width = this.originalInpaintWidth;
+    generation.height = this.originalInpaintHeight;
+    this.clearMask();
+    this.initCanvas(this.originalInpaintWidth, this.originalInpaintHeight);
   }
 
   clearInpaintSession() {
     this.clearMask();
-    this.revokeOwnedInpaintSources([
-      this.inpaintBaseSource,
-      this.inpaintCurrentSource,
-      ...this.inpaintHistory,
-    ]);
-    this.inpaintSessionVersion += 1;
-    this.inpaintBaseSource = null;
-    this.inpaintCurrentSource = null;
-    this.inpaintHistory = [];
+    this.clearPreparedInpaintOverride();
+    this.inpaintSourceVersion += 1;
+    this.originalInpaintInputImageName = null;
+    this.originalInpaintWidth = null;
+    this.originalInpaintHeight = null;
     this.referenceImageUrl = null;
   }
 
-  get hasPreparedInpaintCurrent(): boolean {
-    return Boolean(
-      this.inpaintBaseSource &&
-      this.inpaintCurrentSource &&
-      this.inpaintCurrentSource.previewUrl !== this.inpaintBaseSource.previewUrl,
-    );
+  get currentPreparedInputImage(): string | null {
+    if (generation.mode === "inpainting") {
+      return this.preparedInpaintPreviewUrl;
+    }
+    return this.currentStagingImage;
   }
 
-  get currentPreparedInputImage(): string | null {
-    if (generation.mode === "inpainting" && this.hasPreparedInpaintCurrent) {
-      return this.inpaintCurrentSource?.previewUrl ?? null;
+  get hasResettableInpaintSource(): boolean {
+    return generation.mode === "inpainting" && !!this.referenceImageUrl && !!this.originalInpaintInputImageName;
+  }
+
+  get resettableInpaintPreviewImage(): string | null {
+    if (generation.mode === "inpainting") {
+      return this.preparedInpaintPreviewUrl ?? this.referenceImageUrl;
     }
     return this.currentStagingImage;
   }
 
   clearPreparedInputs() {
-    if (generation.mode === "inpainting" && this.inpaintBaseSource) {
-      this.resetInpaintSessionToBase(true);
+    if (generation.mode === "inpainting" && this.hasResettableInpaintSource) {
+      this.restoreOriginalInpaintSource();
       return;
     }
     this.clearStaging();
   }
 
   dismissPreparedInput() {
-    if (generation.mode === "inpainting" && this.inpaintBaseSource) {
-      this.resetInpaintSessionToBase(false);
+    if (generation.mode === "inpainting" && this.currentPreparedInputImage) {
+      this.restoreOriginalInpaintSource();
       return;
     }
     this.dismissCurrentStaging();
@@ -386,8 +375,8 @@ class CanvasStore {
   }
 
   get effectiveReferenceImage(): string | null {
-    if (generation.mode === "inpainting" && this.inpaintCurrentSource) {
-      return this.inpaintCurrentSource.previewUrl;
+    if (generation.mode === "inpainting" && this.preparedInpaintPreviewUrl) {
+      return this.preparedInpaintPreviewUrl;
     }
     return this.currentStagingImage ?? this.referenceImageUrl;
   }

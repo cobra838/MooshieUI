@@ -342,13 +342,11 @@
         canvas.setInpaintDrawMode("mask");
         canvas.isCanvasMode = true;
         canvas.clearStaging();
-        canvas.setInpaintSessionBase({
+        canvas.setInpaintOriginalSource({
           previewUrl: normalized.previewUrl,
           width: normalized.width,
           height: normalized.height,
-          filename: normalized.filename,
           uploadedInputName: response.name,
-          owned: true,
         });
 
         if (
@@ -1310,7 +1308,7 @@
    * Finalize images received via WebSocket during generation.
    * MooshieSaveImage sends PNG bytes directly over WS — no disk round-trip.
    */
-  async function prepareLatestInpaintResult(image: OutputImage, sessionVersion: number) {
+  async function prepareLatestInpaintResult(image: OutputImage, sourceVersion: number) {
     try {
       const prepared = await prepareOutputImageForEditMode(image, "inpainting");
       const normalized = prepared.normalized;
@@ -1320,16 +1318,15 @@
       if (
         generation.mode !== "inpainting" ||
         !canvas.isCanvasMode ||
-        canvas.inpaintSessionVersion !== sessionVersion
+        canvas.inpaintSourceVersion !== sourceVersion
       ) {
         URL.revokeObjectURL(normalized.previewUrl);
         return;
       }
-      canvas.adoptPreparedInpaintSource({
+      canvas.setPreparedInpaintOverride({
         previewUrl: normalized.previewUrl,
         width: normalized.width,
         height: normalized.height,
-        filename: normalized.filename,
         uploadedInputName: response.name,
         owned: true,
       });
@@ -1368,8 +1365,8 @@
     gallery.addImages(newImages);
     progress.setLastOutputForMode(mode, newImages[0]?.url ?? null);
     if (mode === "inpainting" && generation.mode === "inpainting" && canvas.isCanvasMode && newImages[0]) {
-      const sessionVersion = canvas.inpaintSessionVersion;
-      void prepareLatestInpaintResult(newImages[0], sessionVersion);
+      const sourceVersion = canvas.inpaintSourceVersion;
+      void prepareLatestInpaintResult(newImages[0], sourceVersion);
     }
 
     const metadata = params ? buildPngMetadata(params) : undefined;
