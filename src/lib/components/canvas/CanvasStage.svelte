@@ -512,6 +512,10 @@
     return generation.mode === "inpainting" && canvas.inpaintDrawMode === "mask";
   }
 
+  function isInpaintingMode(): boolean {
+    return generation.mode === "inpainting";
+  }
+
   function getMaskTargetLayer(): { layer: (typeof canvas.layers)[number]; kLayer: Konva.Layer } | null {
     const maskLayer = canvas.layers.find((l) => l.type === "mask");
     if (!maskLayer || maskLayer.locked) return null;
@@ -558,11 +562,11 @@
     }
 
     // Right click → ignore (context menu)
-    const isTemporaryMaskErase = evt.button === 2 && isInpaintMaskMode();
-    if (evt.button === 2 && !isTemporaryMaskErase) return;
-    if (isTemporaryMaskErase) e.evt.preventDefault();
+    const isTemporaryInpaintErase = evt.button === 2 && isInpaintingMode();
+    if (evt.button === 2 && !isTemporaryInpaintErase) return;
+    if (isTemporaryInpaintErase) e.evt.preventDefault();
 
-    const tool = isTemporaryMaskErase ? "eraser" : canvas.activeTool;
+    const tool = isTemporaryInpaintErase ? "eraser" : canvas.activeTool;
     const pos = getCanvasPos(e);
     if (!pos) return;
 

@@ -573,18 +573,10 @@ class CanvasStore {
     let hasRaster = false;
     let hasMask = false;
 
-    // In inpainting mode, keep the original/staged image as the baseline input.
+    // In inpainting mode, keep the currently selected input image as the baseline.
     // This makes denoise behave as expected: only the masked area is reworked.
     if (isInpainting) {
-      if (this.currentStagingImage) {
-        const response = await fetch(this.currentStagingImage);
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const bytes = Array.from(new Uint8Array(arrayBuffer));
-        const result = await uploadImageBytes(bytes, "staged_input.png");
-        generation.inputImage = result.name;
-        hasRaster = true;
-      } else if (generation.inputImage) {
+      if (generation.inputImage) {
         hasRaster = true;
       } else if (rasterCanvas) {
         // Last resort only: if no source image exists, fall back to painted raster.

@@ -39,6 +39,7 @@
   import { interrogateGalleryImage, interrogateImage } from "../../utils/api.js";
   import InterrogateSection from "./InterrogateSection.svelte";
   import { ipcListen, isTauri } from "../../utils/ipc.js";
+  import { progress } from "../../stores/progress.svelte.js";
   import {
     isDroppableSection,
     handleMetadataImport,
@@ -612,6 +613,7 @@
       canvas.clearMask();
       canvas.clearStaging();
       generation.mode = "inpainting";
+      progress.setLastOutputForMode("inpainting", null);
       canvas.isCanvasMode = true;
       applyNormalizedImagePreview(normalized);
       canvas.stageBlob(normalized.previewBlob);

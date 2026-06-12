@@ -337,6 +337,7 @@
         const normalized = prepared.normalized;
         generation.width = normalized.width;
         generation.height = normalized.height;
+        progress.setLastOutputForMode("inpainting", null);
 
         canvas.setInpaintDrawMode("mask");
         canvas.isCanvasMode = true;
@@ -1332,16 +1333,6 @@
 
     gallery.addImages(newImages);
     progress.setLastOutputForMode(mode, newImages[0]?.url ?? null);
-
-    if (mode === "img2img" || mode === "inpainting") {
-      for (const image of images) {
-        if (image.blob.type === "image/jxl") {
-          canvas.stageImage(image.url);
-        } else {
-          canvas.stageBlob(image.blob);
-        }
-      }
-    }
 
     const metadata = params ? buildPngMetadata(params) : undefined;
     for (const image of newImages) {

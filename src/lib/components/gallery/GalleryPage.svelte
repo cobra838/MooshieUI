@@ -2,6 +2,7 @@
   import { gallery } from "../../stores/gallery.svelte.js";
   import { locale } from "../../stores/locale.svelte.js";
   import { generation } from "../../stores/generation.svelte.js";
+  import { progress } from "../../stores/progress.svelte.js";
   import { canvas } from "../../stores/canvas.svelte.js";
   import { connection } from "../../stores/connection.svelte.js";
   import { lazyThumbnail } from "../../utils/lazyThumbnail.js";
@@ -136,6 +137,7 @@
         const normalized = prepared.normalized;
         generation.width = normalized.width;
         generation.height = normalized.height;
+        progress.setLastOutputForMode("inpainting", null);
         canvas.setInpaintDrawMode("mask");
         canvas.isCanvasMode = true;
         canvas.clearStaging();
