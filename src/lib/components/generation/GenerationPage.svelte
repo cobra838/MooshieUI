@@ -372,8 +372,21 @@
     canvas.setReferenceImage(imagePreviewUrl);
   }
 
+  function syncInpaintBaseIfNeeded(normalized: NormalizedInputImage, uploadedInputName: string) {
+    if (generation.mode !== "inpainting") return;
+    canvas.setInpaintSessionBase({
+      previewUrl: normalized.previewUrl,
+      width: normalized.width,
+      height: normalized.height,
+      filename: normalized.filename,
+      uploadedInputName,
+      owned: true,
+    });
+  }
+
   function resetStagedInputForManualReplacement() {
     canvas.clearStaging();
+    canvas.clearInpaintSession();
   }
 
   function getFilenameFromPath(path: string): string {
@@ -405,6 +418,7 @@
         applyNormalizedImagePreview(normalized);
         const response = await uploadImageBytes(normalized.bytes, normalized.filename);
         generation.inputImage = response.name;
+        syncInpaintBaseIfNeeded(normalized, response.name);
       } catch (e) { console.error("Failed to upload image:", e); } finally { uploading = false; }
       return;
     }
@@ -423,6 +437,7 @@
 
       const response = await uploadImageBytes(normalized.bytes, normalized.filename);
       generation.inputImage = response.name;
+      syncInpaintBaseIfNeeded(normalized, response.name);
     } catch (e) {
       console.error("Failed to upload image:", e);
     } finally {
@@ -493,6 +508,7 @@
 
       const response = await uploadImageBytes(normalized.bytes, normalized.filename);
       generation.inputImage = response.name;
+      syncInpaintBaseIfNeeded(normalized, response.name);
     } catch (e) {
       console.error("Failed to handle dropped image:", e);
       gallery.showToast(locale.t('generation.toast.failed_drop'), "error");
@@ -536,6 +552,7 @@
 
       const response = await uploadImageBytes(normalized.bytes, normalized.filename);
       generation.inputImage = response.name;
+      syncInpaintBaseIfNeeded(normalized, response.name);
     } catch (e) {
       console.error("Failed to paste image:", e);
     } finally {
@@ -564,6 +581,8 @@
   function clearImage() {
     generation.inputImage = null;
     imageAspect = null;
+    canvas.clearStaging();
+    canvas.clearInpaintSession();
     canvas.setReferenceImage(null);
     if (imagePreviewUrl) {
       URL.revokeObjectURL(imagePreviewUrl);
@@ -616,7 +635,14 @@
       progress.setLastOutputForMode("inpainting", null);
       canvas.isCanvasMode = true;
       applyNormalizedImagePreview(normalized);
-      canvas.stageBlob(normalized.previewBlob);
+      canvas.setInpaintSessionBase({
+        previewUrl: normalized.previewUrl,
+        width: normalized.width,
+        height: normalized.height,
+        filename: normalized.filename,
+        uploadedInputName: response.name,
+        owned: true,
+      });
 
       if (canvas.layers.length === 0) {
         canvas.initCanvas(generation.width, generation.height);
@@ -1254,6 +1280,7 @@
       applyNormalizedImagePreview(normalized);
       const response = await uploadImage(path);
       generation.inputImage = response.name;
+      syncInpaintBaseIfNeeded(normalized, response.name);
     } catch (e) {
       console.error("Failed to handle dropped image:", e);
       // Don't leave a preview visible when the upload never registered.
@@ -1470,12 +1497,12 @@
       </div>
       {#if imageSectionOpen}
         <div class="px-3 pb-2 pt-0.5 space-y-2">
-          {#if canvas.currentStagingImage}
+          {#if canvas.currentPreparedInputImage}
             <div class="rounded-md border border-amber-700/50 bg-amber-900/20 p-2 flex items-center justify-between gap-2">
               <span class="text-[11px] text-amber-300">{locale.t('generation.image.staged_active')}</span>
               <button
                 class="px-2 py-1 text-[11px] rounded border border-amber-600/60 text-amber-200 hover:border-amber-400 hover:text-amber-100 transition-colors"
-                onclick={() => canvas.dismissCurrentStaging()}
+                onclick={() => canvas.dismissPreparedInput()}
                 title={locale.t('generation.image.remove_staged')}
               >
                 {locale.t('generation.image.remove_staged')}
@@ -1483,7 +1510,7 @@
             </div>
           {/if}
 
-          <div class="{canvas.currentStagingImage ? 'opacity-50 pointer-events-none' : ''}">
+          <div class="{canvas.currentPreparedInputImage ? 'opacity-50 pointer-events-none' : ''}">
             <p class="text-xs text-neutral-400 mb-1">{locale.t('generation.image.input')}</p>
             {#if imagePreviewUrl}
               <!-- svelte-ignore a11y_no_static_element_interactions -->

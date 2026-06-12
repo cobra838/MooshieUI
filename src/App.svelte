@@ -342,8 +342,14 @@
         canvas.setInpaintDrawMode("mask");
         canvas.isCanvasMode = true;
         canvas.clearStaging();
-        canvas.stageBlob(normalized.previewBlob);
-        canvas.setReferenceImage(normalized.previewUrl);
+        canvas.setInpaintSessionBase({
+          previewUrl: normalized.previewUrl,
+          width: normalized.width,
+          height: normalized.height,
+          filename: normalized.filename,
+          uploadedInputName: response.name,
+          owned: true,
+        });
 
         if (
           canvas.layers.length === 0 ||
@@ -1304,6 +1310,34 @@
    * Finalize images received via WebSocket during generation.
    * MooshieSaveImage sends PNG bytes directly over WS — no disk round-trip.
    */
+  async function prepareLatestInpaintResult(image: OutputImage, sessionVersion: number) {
+    try {
+      const prepared = await prepareOutputImageForEditMode(image, "inpainting");
+      const normalized = prepared.normalized;
+      if (!normalized) return;
+
+      const response = await uploadImageBytes(prepared.uploadBytes, prepared.uploadFilename);
+      if (
+        generation.mode !== "inpainting" ||
+        !canvas.isCanvasMode ||
+        canvas.inpaintSessionVersion !== sessionVersion
+      ) {
+        URL.revokeObjectURL(normalized.previewUrl);
+        return;
+      }
+      canvas.adoptPreparedInpaintSource({
+        previewUrl: normalized.previewUrl,
+        width: normalized.width,
+        height: normalized.height,
+        filename: normalized.filename,
+        uploadedInputName: response.name,
+        owned: true,
+      });
+    } catch (e) {
+      console.error("Failed to prepare latest inpaint result:", e);
+    }
+  }
+
   function finalizeOutputImages(
     promptId: string,
     mode: "txt2img" | "img2img" | "inpainting",
@@ -1333,6 +1367,10 @@
 
     gallery.addImages(newImages);
     progress.setLastOutputForMode(mode, newImages[0]?.url ?? null);
+    if (mode === "inpainting" && generation.mode === "inpainting" && canvas.isCanvasMode && newImages[0]) {
+      const sessionVersion = canvas.inpaintSessionVersion;
+      void prepareLatestInpaintResult(newImages[0], sessionVersion);
+    }
 
     const metadata = params ? buildPngMetadata(params) : undefined;
     for (const image of newImages) {

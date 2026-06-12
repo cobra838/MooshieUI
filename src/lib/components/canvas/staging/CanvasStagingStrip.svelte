@@ -29,8 +29,14 @@
       progress.setLastOutputForMode("inpainting", null);
       canvas.clearMask();
       canvas.clearStaging();
-      canvas.stageBlob(normalized.previewBlob);
-      canvas.setReferenceImage(normalized.previewUrl);
+      canvas.setInpaintSessionBase({
+        previewUrl: normalized.previewUrl,
+        width: normalized.width,
+        height: normalized.height,
+        filename: normalized.filename,
+        uploadedInputName: response.name,
+        owned: true,
+      });
       generation.width = normalized.width;
       generation.height = normalized.height;
       canvas.isCanvasMode = true;
@@ -48,15 +54,15 @@
 
 <div class="border-t border-neutral-800 bg-neutral-900/70 px-3 py-2">
   <div class="flex items-center gap-2 mb-2">
-    {#if canvas.currentStagingImage}
+    {#if canvas.currentPreparedInputImage}
       <img
-        src={canvas.currentStagingImage}
+        src={canvas.currentPreparedInputImage}
         alt={locale.t("canvas.staged_alt")}
         class="w-10 h-10 rounded border border-neutral-700 object-cover"
       />
       <span class="text-[11px] text-neutral-400">{locale.t('generation.image.staged_active')}</span>
       <button
-        onclick={() => canvas.clearStaging()}
+        onclick={() => canvas.clearPreparedInputs()}
         class="ml-auto text-[11px] px-2 py-1 rounded border border-neutral-700 text-neutral-300 hover:border-red-500 hover:text-red-300"
         title={locale.t('canvas.clear_all_title')}
       >

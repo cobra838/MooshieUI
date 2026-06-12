@@ -32,6 +32,15 @@ export interface CanvasStagingEntry {
   owned: boolean;
 }
 
+export interface InpaintPreparedSource {
+  previewUrl: string;
+  width: number;
+  height: number;
+  filename: string;
+  uploadedInputName: string | null;
+  owned: boolean;
+}
+
 export interface CanvasViewport {
   zoom: number;
   panX: number;
@@ -88,6 +97,10 @@ class CanvasStore {
   showCheckerboard = $state(true);
   cursorPos = $state<{ x: number; y: number } | null>(null);
   referenceImageUrl = $state<string | null>(null);
+  inpaintBaseSource = $state<InpaintPreparedSource | null>(null);
+  inpaintCurrentSource = $state<InpaintPreparedSource | null>(null);
+  inpaintHistory = $state<InpaintPreparedSource[]>([]);
+  inpaintSessionVersion = $state(0);
   persistedMaskPreviewUrl = $state<string | null>(null);
 
   // Staging
@@ -191,6 +204,128 @@ class CanvasStore {
     };
   }
 
+  private revokeOwnedUrls(urls: string[]) {
+    const seen = new Set<string>();
+    for (const url of urls) {
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  private revokeOwnedInpaintSources(sources: Array<InpaintPreparedSource | null | undefined>) {
+    this.revokeOwnedUrls(
+      sources
+        .filter((source): source is InpaintPreparedSource => Boolean(source?.owned && source.previewUrl))
+        .map((source) => source.previewUrl),
+    );
+  }
+
+  setInpaintSessionBase(source: InpaintPreparedSource | null) {
+    this.revokeOwnedInpaintSources([
+      this.inpaintBaseSource,
+      this.inpaintCurrentSource,
+      ...this.inpaintHistory,
+    ]);
+
+    this.inpaintSessionVersion += 1;
+    this.inpaintBaseSource = source;
+    this.inpaintCurrentSource = source;
+    this.inpaintHistory = [];
+
+    if (source) {
+      this.referenceImageUrl = source.previewUrl;
+      generation.inputImage = source.uploadedInputName;
+      generation.width = source.width;
+      generation.height = source.height;
+      this.clearMask();
+      this.initCanvas(source.width, source.height);
+    } else {
+      this.referenceImageUrl = null;
+    }
+  }
+
+  adoptPreparedInpaintSource(source: InpaintPreparedSource) {
+    if (!this.inpaintBaseSource) {
+      this.setInpaintSessionBase(source);
+      return;
+    }
+
+    this.inpaintHistory = [...this.inpaintHistory, source];
+    this.inpaintCurrentSource = source;
+    this.referenceImageUrl = source.previewUrl;
+    generation.inputImage = source.uploadedInputName;
+    generation.width = source.width;
+    generation.height = source.height;
+    this.clearMask();
+    this.initCanvas(source.width, source.height);
+  }
+
+  resetInpaintSessionToBase(clearHistory: boolean = true) {
+    if (!this.inpaintBaseSource) return;
+
+    if (clearHistory) {
+      this.revokeOwnedInpaintSources([
+        ...this.inpaintHistory,
+        this.inpaintCurrentSource !== this.inpaintBaseSource ? this.inpaintCurrentSource : null,
+      ]);
+      this.inpaintHistory = [];
+    }
+
+    this.inpaintCurrentSource = this.inpaintBaseSource;
+    this.referenceImageUrl = this.inpaintBaseSource.previewUrl;
+    generation.inputImage = this.inpaintBaseSource.uploadedInputName;
+    generation.width = this.inpaintBaseSource.width;
+    generation.height = this.inpaintBaseSource.height;
+    this.clearMask();
+    this.initCanvas(this.inpaintBaseSource.width, this.inpaintBaseSource.height);
+  }
+
+  clearInpaintSession() {
+    this.clearMask();
+    this.revokeOwnedInpaintSources([
+      this.inpaintBaseSource,
+      this.inpaintCurrentSource,
+      ...this.inpaintHistory,
+    ]);
+    this.inpaintSessionVersion += 1;
+    this.inpaintBaseSource = null;
+    this.inpaintCurrentSource = null;
+    this.inpaintHistory = [];
+    this.referenceImageUrl = null;
+  }
+
+  get hasPreparedInpaintCurrent(): boolean {
+    return Boolean(
+      this.inpaintBaseSource &&
+      this.inpaintCurrentSource &&
+      this.inpaintCurrentSource.previewUrl !== this.inpaintBaseSource.previewUrl,
+    );
+  }
+
+  get currentPreparedInputImage(): string | null {
+    if (generation.mode === "inpainting" && this.hasPreparedInpaintCurrent) {
+      return this.inpaintCurrentSource?.previewUrl ?? null;
+    }
+    return this.currentStagingImage;
+  }
+
+  clearPreparedInputs() {
+    if (generation.mode === "inpainting" && this.inpaintBaseSource) {
+      this.resetInpaintSessionToBase(true);
+      return;
+    }
+    this.clearStaging();
+  }
+
+  dismissPreparedInput() {
+    if (generation.mode === "inpainting" && this.inpaintBaseSource) {
+      this.resetInpaintSessionToBase(false);
+      return;
+    }
+    this.dismissCurrentStaging();
+  }
+
   stageImage(url: string, options?: { owned?: boolean }) {
     if (!url) return;
     this.stagingImages = [
@@ -251,6 +386,9 @@ class CanvasStore {
   }
 
   get effectiveReferenceImage(): string | null {
+    if (generation.mode === "inpainting" && this.inpaintCurrentSource) {
+      return this.inpaintCurrentSource.previewUrl;
+    }
     return this.currentStagingImage ?? this.referenceImageUrl;
   }
 
