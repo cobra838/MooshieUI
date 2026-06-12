@@ -448,7 +448,11 @@ pub fn needs_sd3_latent(params: &GenerationParams) -> bool {
 pub fn needs_flux2_latent(params: &GenerationParams) -> bool {
     matches!(
         params.model_architecture.as_str(),
-        "flux2d" | "flux2klein9b" | "flux2klein9bbase" | "flux2klein4b" | "flux2klein4bbase"
+        "flux2d"
+            | "flux2klein9b"
+            | "flux2klein9bbase"
+            | "flux2klein4b"
+            | "flux2klein4bbase"
     )
 }
 

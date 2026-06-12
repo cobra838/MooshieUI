@@ -2806,10 +2806,7 @@ fn model_family_from_filename(filename: &str) -> Option<&'static str> {
     }
     if name.contains("flux.2 klein 9b-base")
         || name.contains("flux2klein9bbase")
-        || (name.contains("flux")
-            && name.contains("klein")
-            && name.contains("9b")
-            && name.contains("base"))
+        || (name.contains("flux") && name.contains("klein") && name.contains("9b") && name.contains("base"))
     {
         return Some("flux2klein9bbase");
     }
@@ -2821,10 +2818,7 @@ fn model_family_from_filename(filename: &str) -> Option<&'static str> {
     }
     if name.contains("flux.2 klein 4b-base")
         || name.contains("flux2klein4bbase")
-        || (name.contains("flux")
-            && name.contains("klein")
-            && name.contains("4b")
-            && name.contains("base"))
+        || (name.contains("flux") && name.contains("klein") && name.contains("4b") && name.contains("base"))
     {
         return Some("flux2klein4bbase");
     }
@@ -3029,7 +3023,13 @@ fn recommended_vae_from_available(category: &str, family: &str, vaes: &[String])
 
     if matches!(
         family,
-        "flux" | "flux1d" | "flux1s" | "flux1krea" | "chroma" | "zib" | "zit"
+        "flux"
+            | "flux1d"
+            | "flux1s"
+            | "flux1krea"
+            | "chroma"
+            | "zib"
+            | "zit"
     ) {
         return find_first_vae_matching(vaes, &["flux"]).or_else(|| vaes.first().cloned());
     }
@@ -3048,57 +3048,75 @@ fn recommended_clip_from_available(
 
     if family == "anima" {
         let preferred =
-            find_first_text_encoder_matching(encoders, &["qwen_3_06b_base", "qwen_3_06b"])
-                .or_else(|| encoders.first().cloned())?;
+            find_first_text_encoder_matching(encoders, &[
+                "qwen_3_06b_base",
+                "qwen_3_06b",
+            ])
+            .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "stable_diffusion"));
     }
 
     if matches!(family, "qwen" | "wan") {
-        let preferred = find_first_text_encoder_matching(encoders, &["qwen2.5-vl", "qwen_2.5_vl"])
+        let preferred =
+            find_first_text_encoder_matching(encoders, &[
+                "qwen2.5-vl",
+                "qwen_2.5_vl",
+            ])
             .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "qwen_image"));
     }
 
     if family == "flux2d" {
-        let preferred = encoders
-            .iter()
-            .find_map(|encoder| {
-                let lower = encoder.to_lowercase();
-                if lower.contains("cow-mistral3-small") {
-                    Some(encoder.clone())
-                } else {
-                    None
-                }
-            })
-            .or_else(|| encoders.first().cloned())?;
+        let preferred = encoders.iter().find_map(|encoder| {
+            let lower = encoder.to_lowercase();
+            if lower.contains("cow-mistral3-small") {
+                Some(encoder.clone())
+            } else {
+                None
+            }
+        })
+        .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "flux2"));
     }
 
     if matches!(family, "flux2klein9b" | "flux2klein9bbase") {
-        let preferred = find_first_text_encoder_matching(encoders, &["qwen3_8b", "qwen_3_8b"])
+        let preferred =
+            find_first_text_encoder_matching(encoders, &[
+                "qwen3_8b",
+                "qwen_3_8b",
+            ])
             .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "flux2"));
     }
 
     if matches!(family, "flux2klein4b" | "flux2klein4bbase") {
         let preferred =
-            find_first_text_encoder_matching(encoders, &["zimage", "qwen3-4b", "qwen34b"])
-                .or_else(|| encoders.first().cloned())?;
+            find_first_text_encoder_matching(encoders, &[
+                "zimage",
+                "qwen3-4b",
+                "qwen34b",
+            ])
+            .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "flux2"));
     }
 
     if matches!(family, "zib" | "zit") {
         let preferred =
-            find_first_text_encoder_matching(encoders, &["zimage", "qwen3-4b", "qwen34b"])
-                .or_else(|| encoders.first().cloned())?;
+            find_first_text_encoder_matching(encoders, &[
+                "zimage",
+                "qwen3-4b",
+                "qwen34b",
+            ])
+            .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "lumina2"));
     }
 
-    if matches!(
-        family,
-        "flux" | "flux1d" | "flux1s" | "flux1krea" | "chroma"
-    ) {
-        let preferred = find_first_text_encoder_matching(encoders, &["flan_t5_xxl", "t5_xxl"])
+    if matches!(family, "flux" | "flux1d" | "flux1s" | "flux1krea" | "chroma") {
+        let preferred =
+            find_first_text_encoder_matching(encoders, &[
+                "flan_t5_xxl",
+                "t5_xxl",
+            ])
             .or_else(|| encoders.first().cloned())?;
         return Some((preferred, "chroma"));
     }
@@ -3672,10 +3690,7 @@ pub(crate) async fn read_modelspec_internal(
     }
 
     if category == "diffusion_models" {
-        let family = result
-            .get("family")
-            .cloned()
-            .unwrap_or_else(|| "unknown".to_string());
+        let family = result.get("family").cloned().unwrap_or_else(|| "unknown".to_string());
         if let Ok(vaes) = state.get_models_list("vae").await {
             if let Some(recommended_vae) = recommended_vae_from_available(category, &family, &vaes)
             {
@@ -4369,8 +4384,7 @@ pub async fn get_checkpoint_civitai_info(
     };
 
     let sidecar_thumbnail = read_model_sidecar_thumbnail(&path);
-    let resolved_modelspec =
-        read_modelspec_internal(state.inner(), "checkpoints", &filename).await?;
+    let resolved_modelspec = read_modelspec_internal(state.inner(), "checkpoints", &filename).await?;
 
     let mut info = CheckpointCivitaiInfo {
         filename: filename.clone(),
@@ -4379,11 +4393,7 @@ pub async fn get_checkpoint_civitai_info(
         base_model: resolved_modelspec
             .as_ref()
             .and_then(|m| m.get("base_model").cloned())
-            .or_else(|| {
-                modelspec
-                    .as_ref()
-                    .and_then(|m| m.get("architecture").cloned())
-            }),
+            .or_else(|| modelspec.as_ref().and_then(|m| m.get("architecture").cloned())),
         family: resolved_modelspec
             .as_ref()
             .and_then(|m| m.get("family").cloned()),
